@@ -118,49 +118,45 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
 
   const sendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Send message clicked');
-    console.log('New message:', newMessage);
-    console.log('Current user:', currentUser?.uid);
-    console.log('User wallet:', userWallet);
-    console.log('Recipient UID:', recipientUid);
-    console.log('Recipient wallet:', recipientWallet);
-
-    if (!newMessage.trim()) {
-      console.log('Message is empty, not sending');
-      return;
-    }
-    
-    if (!currentUser) {
-      console.log('No current user, not sending');
+    if (!newMessage.trim() || !currentUser) {
       return;
     }
 
     setSending(true);
+    const sentMessageContent = newMessage.trim();
+    setNewMessage('');
+
+    const optimisticMessage: Message = {
+      id: `optimistic-${Date.now()}`,
+      senderUid: currentUser.uid,
+      senderWallet: userWallet || 'No wallet',
+      messageContent: sentMessageContent,
+      timestamp: new Date(),
+      isRead: false,
+    };
+
+    setMessages(prevMessages => [...prevMessages, optimisticMessage]);
+
     try {
-      console.log('Attempting to send message to Firestore...');
       const messageData = {
         senderUid: currentUser.uid,
         senderWallet: userWallet || 'No wallet',
         recipientUid,
         recipientWallet: recipientWallet || 'No wallet',
-        messageContent: newMessage.trim(),
+        messageContent: sentMessageContent,
         timestamp: serverTimestamp(),
-        isRead: false
+        isRead: false,
       };
       
-      console.log('Message data:', messageData);
-      
-      const docRef = await addDoc(collection(db, 'messages'), messageData);
-      console.log('Message sent successfully with ID:', docRef.id);
-      setNewMessage('');
+      await addDoc(collection(db, 'messages'), messageData);
     } catch (error) {
       console.error('Error sending message:', error);
-      console.error('Error details:', {
-        code: (error as any).code,
-        message: (error as any).message
-      });
+      // Revert the optimistic update on error
+      setMessages(prevMessages => prevMessages.filter(msg => msg.id !== optimisticMessage.id));
+      setNewMessage(sentMessageContent);
+    } finally {
+      setSending(false);
     }
-    setSending(false);
   };
 
   const formatTime = (date: Date) => {
