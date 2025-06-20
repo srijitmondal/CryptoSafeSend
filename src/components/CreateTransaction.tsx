@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { TransactionResult } from './TransactionResult';
+import { TransactionSummary } from './TransactionSummary';
 
 export const CreateTransaction: React.FC = () => {
   const { account, createTransaction } = useWallet();
@@ -15,13 +16,15 @@ export const CreateTransaction: React.FC = () => {
   const [formData, setFormData] = useState({
     recipient: '',
     passcode: '',
-    amount: ''
+    amount: '',
+    purpose: ''
   });
   const [transactionResult, setTransactionResult] = useState<{
     txId: string;
     recipient: string;
     amount: string;
   } | null>(null);
+  const [showSummary, setShowSummary] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -59,7 +62,32 @@ export const CreateTransaction: React.FC = () => {
 
   const handleCreateAnother = () => {
     setTransactionResult(null);
-    setFormData({ recipient: '', passcode: '', amount: '' });
+    setFormData({ recipient: '', passcode: '', amount: '', purpose: '' });
+  };
+
+  const handleProceed = async () => {
+    setIsLoading(true);
+    try {
+      const txId = await createTransaction(formData.recipient, formData.passcode, formData.amount);
+      setTransactionResult({
+        txId,
+        recipient: formData.recipient,
+        amount: formData.amount
+      });
+      toast({
+        title: "Transaction Created",
+        description: "Your secure transaction has been created successfully!",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Transaction Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+      setShowSummary(false);
+    }
   };
 
   if (transactionResult) {
@@ -70,6 +98,20 @@ export const CreateTransaction: React.FC = () => {
         amount={transactionResult.amount}
         onCreateAnother={handleCreateAnother}
       />
+    );
+  }
+
+  if (showSummary) {
+    return (
+      <div className="max-w-4xl mx-auto space-y-8 animate-fade-in">
+        <TransactionSummary
+          amount={formData.amount}
+          recipientAddress={formData.recipient}
+          secretCode={formData.passcode}
+          purpose={formData.purpose}
+          onProceed={handleProceed}
+        />
+      </div>
     );
   }
 
@@ -94,7 +136,7 @@ export const CreateTransaction: React.FC = () => {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={(e) => { e.preventDefault(); setShowSummary(true); }} className="space-y-6">
             <div>
               <Label htmlFor="recipient" className="text-white text-sm font-medium">Recipient Address</Label>
               <Input
@@ -134,6 +176,18 @@ export const CreateTransaction: React.FC = () => {
                 required
               />
             </div>
+            <div>
+              <Label htmlFor="purpose" className="text-white text-sm font-medium">Purpose</Label>
+              <Input
+                id="purpose"
+                type="text"
+                placeholder="e.g. freelance payment, gift, etc."
+                value={formData.purpose}
+                onChange={(e) => setFormData({ ...formData, purpose: e.target.value })}
+                className="bg-white/10 border-white/20 text-white placeholder:text-gray-500 mt-2 h-12 rounded-lg backdrop-blur-sm"
+                required
+              />
+            </div>
             
             <Button
               type="submit"
@@ -148,7 +202,7 @@ export const CreateTransaction: React.FC = () => {
               ) : (
                 <>
                   <Send className="w-5 h-5 mr-3" />
-                  Send ETH
+                  Proceed to Payment
                 </>
               )}
             </Button>
