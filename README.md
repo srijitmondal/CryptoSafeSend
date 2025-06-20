@@ -13,7 +13,7 @@ CryptoSafeSend is a decentralized Web3-based transaction mediator designed to sa
 - ✅ In-App Secure Messaging: Firebase-based chat for sending the secret code safely.
 - ✅ Dual Login: Sender and Receiver can log in with separate wallet addresses.
 - ✅ Transaction Logs: Transparent and immutable logs on the blockchain.
-- ✅ Clean UI: Built using Lovable.dev and React for a smooth UX.
+- ✅ Clean UI: Built using React for a smooth UX.
 
 ---
 
@@ -22,7 +22,7 @@ CryptoSafeSend is a decentralized Web3-based transaction mediator designed to sa
 1. User logs in via MetaMask.
 2. Sender creates a transaction by locking MATIC with a secret code (hashed).
 3. Receiver inputs the secret code to verify and unlock the funds.
-4. Optional secure messaging is used to send the code off-chain via Firebase Firestore.
+4. Secure messaging is used to send the code off-chain via Firebase Firestore.
 5. Smart contract validates and transfers the amount to the receiver.
 
 ---
@@ -32,11 +32,12 @@ CryptoSafeSend is a decentralized Web3-based transaction mediator designed to sa
 | Layer              | Technology                    |
 |-------------------|-------------------------------|
 | Smart Contract     | Solidity, Remix IDE, Ganache  |
-| Blockchain Network | Polygon Amoy Testnet          |
+| Blockchain Network | Etherium          |
 | Frontend           | Vite + React + TypeScript     |
 | UI Framework       | shadcn-ui + Tailwind CSS      |
 | Web3 Integration   | Web3.js                       |
 | Messaging Backend  | Firebase Firestore            |
+| Login Backebd  | Firebase Authencation            |
 | Wallet Integration | MetaMask                      |
 
 ---
