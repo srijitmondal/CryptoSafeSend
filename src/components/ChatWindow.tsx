@@ -213,7 +213,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         </CardTitle>
       </CardHeader>
       
-      <CardContent className="flex-1 flex flex-col p-0">
+      <CardContent className="flex-1 flex flex-col p-0 overflow-hidden">
         <ScrollArea className="flex-1 px-4 py-2">
           <div className="space-y-3 min-h-full flex flex-col justify-end">
             {messages.length === 0 ? (

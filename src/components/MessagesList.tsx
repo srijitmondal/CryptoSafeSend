@@ -99,7 +99,7 @@ export const MessagesList: React.FC<MessagesListProps> = ({ onSelectChat }) => {
   };
 
   return (
-    <Card className="glass-effect border-white/20 max-w-2xl mx-auto animate-glow">
+    <Card className="bg-white/5 backdrop-blur border border-white/10 rounded-2xl shadow-lg w-full max-w-md mx-auto">
       <CardHeader className="text-center">
         <CardTitle className="text-white flex items-center justify-center text-2xl">
           <MessageCircle className="w-6 h-6 mr-3" />

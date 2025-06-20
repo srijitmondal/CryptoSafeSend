@@ -133,7 +133,7 @@ const Index = () => {
           </div>
         </div>
         
-        <div className="relative z-10">
+        <div className="relative z-10 flex flex-col min-h-screen">
           {/* Header */}
           <header className="p-6 border-b border-gray-800/50 backdrop-blur-xl bg-black/30">
             <div className="max-w-6xl mx-auto flex items-center justify-between">
@@ -268,13 +268,13 @@ const Index = () => {
           </section>
 
           {/* Main Content */}
-          <main className="px-6 pb-12">
+          <main className="px-6 pb-12 flex-grow">
             <div className="max-w-2xl mx-auto">
               <Navigation activeTab={activeTab} setActiveTab={setActiveTab} />
               <div className="animate-fade-in">
                 {activeTab === 'messages' ? (
-                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    <div className="lg:col-span-1">
+                  <div className="flex flex-col lg:flex-row gap-6">
+                    <div className="lg:w-1/3">
                       {showUsersList ? (
                         <UsersList onSelectUser={(uid, wallet, email) => handleSelectUser(uid, wallet, email)} />
                       ) : (
@@ -292,7 +292,7 @@ const Index = () => {
                         </>
                       )}
                     </div>
-                    <div className="lg:col-span-2">
+                    <div className="lg:w-2/3">
                       {selectedChat ? (
                         <ChatWindow
                           recipientUid={selectedChat.recipientUid}
@@ -301,7 +301,7 @@ const Index = () => {
                           onBack={handleBackFromChat}
                         />
                       ) : (
-                        <div className="flex items-center justify-center h-[600px] bg-black/40 backdrop-blur-xl rounded-2xl border border-gray-800/50 shadow-2xl">
+                        <div className="flex items-center justify-center h-full min-h-[540px] bg-black/40 backdrop-blur-xl rounded-2xl border border-gray-800/50 shadow-2xl">
                           <div className="text-center text-gray-400">
                             <div className="relative mb-6">
                               <div className="absolute inset-0 bg-gradient-to-r from-blue-500/20 to-purple-500/20 rounded-full blur-xl"></div>
@@ -322,7 +322,7 @@ const Index = () => {
           </main>
 
           {/* Footer */}
-          <footer className="px-6 py-12 border-t border-gray-800/50 mt-12 backdrop-blur-xl bg-black/20">
+          <footer className="px-6 py-12 border-t border-gray-800/50 mt-auto backdrop-blur-xl bg-black/20">
             <div className="max-w-6xl mx-auto text-center">
               <p className="text-gray-500 text-sm flex items-center justify-center">
                 Built with <span className="text-red-400 mx-1 animate-pulse">💜 by SpiderStack</span> for secure Ethereum transfers. 
@@ -333,6 +333,7 @@ const Index = () => {
         </div>
       </div>
     </WalletProvider>
+    
   );
 };
 
