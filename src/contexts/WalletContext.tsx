@@ -12,6 +12,7 @@ interface WalletContextType {
   claimFunds: (txId: string, passcode: string) => Promise<void>;
   cancelTransaction: (txId: string) => Promise<void>;
   getTransaction: (txId: string) => Promise<any>;
+  getAllTransactions: () => Promise<any[]>;
 }
 
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
@@ -608,53 +609,71 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
   };
 
   const getTransaction = async (txId: string) => {
-    if (!contract) throw new Error('Contract not initialized');
-    
+    if (!contract) throw new Error("Contract not initialized");
     try {
-      console.log('Getting transaction:', txId);
-      
-      const result = await contract.getTransaction(txId);
-      console.log('Transaction result:', result);
-      
-      // Check if transaction exists (sender address is not zero)
-      if (result.sender === '0x0000000000000000000000000000000000000000') {
-        throw new Error('Transaction not found');
-      }
-      
+      const tx = await contract.getTransaction(txId);
       return {
-        sender: result.sender,
-        recipient: result.recipient,
-        amount: formatEther(result.amount),
-        claimed: result.claimed,
-        cancelled: result.cancelled
+        sender: getAddress(tx.sender),
+        recipient: getAddress(tx.recipient),
+        amount: formatEther(tx.amount),
+        claimed: tx.claimed,
+        cancelled: tx.cancelled,
       };
-    } catch (error: any) {
-      console.error('Error getting transaction:', error);
-      
-      if (error.message.includes('Transaction not found')) {
-        throw new Error('Transaction not found');
-      } else {
-        throw new Error('Failed to fetch transaction details');
-      }
+    } catch (error) {
+      console.error("Error getting transaction:", error);
+      throw new Error("Could not fetch transaction. Please check the ID and network.");
     }
   };
 
-  return (
-    <WalletContext.Provider value={{
-      account,
-      provider,
-      contract,
-      isConnecting,
-      connectWallet,
-      disconnectWallet,
-      createTransaction,
-      claimFunds,
-      cancelTransaction,
-      getTransaction
-    }}>
-      {children}
-    </WalletContext.Provider>
-  );
+  const getAllTransactions = async () => {
+    if (!contract) throw new Error("Contract not initialized");
+    try {
+      const txCount = await contract.txCounter();
+      const count = Number(txCount);
+      const transactions = [];
+
+      for (let i = 1; i <= count; i++) {
+        try {
+          const tx = await contract.getTransaction(i);
+          transactions.push({
+            id: i,
+            sender: getAddress(tx.sender),
+            recipient: getAddress(tx.recipient),
+            amount: formatEther(tx.amount),
+            claimed: tx.claimed,
+            cancelled: tx.cancelled,
+          });
+        } catch (innerError) {
+          console.warn(`Could not fetch transaction ID ${i}:`, innerError);
+          // Optionally, add a placeholder for failed transactions
+          transactions.push({
+            id: i,
+            error: `Failed to load transaction ${i}`,
+          });
+        }
+      }
+      return transactions.reverse(); // Show newest first
+    } catch (error) {
+      console.error("Error getting all transactions:", error);
+      throw new Error("Could not fetch all transactions from the contract.");
+    }
+  };
+
+  const value: WalletContextType = {
+    account,
+    provider,
+    contract,
+    isConnecting,
+    connectWallet,
+    disconnectWallet,
+    createTransaction,
+    claimFunds,
+    cancelTransaction,
+    getTransaction,
+    getAllTransactions,
+  };
+
+  return <WalletContext.Provider value={value}>{children}</WalletContext.Provider>;
 };
 
 export const useWallet = () => {
