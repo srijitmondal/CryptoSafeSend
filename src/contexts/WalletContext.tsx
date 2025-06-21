@@ -236,7 +236,7 @@ const CONTRACT_ABI = [
 ];
 
 // Updated with your actual deployed contract address from Ganache
-const CONTRACT_ADDRESS = "0x97158616356CE33F64Ea556E5ddD26Fc1a60D05A"; // Your SafeSend contract address
+const CONTRACT_ADDRESS = "0x045DDC64781844672a6B8d9E9798Fed983E4cfaE"; // Your SafeSend contract address
 
 interface WalletProviderProps {
   children: ReactNode;
@@ -550,7 +550,7 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
         } else if (error.message.toLowerCase().includes('transaction cancelled')) {
           throw new Error('Transaction has been cancelled');
         } else if (error.message.toLowerCase().includes('not the intended recipient')) {
-          throw new Error('Only the intended recipient can claim this transaction (please switch to the recipient’s MetaMask account)');
+          throw new Error('Only the intended recipient can claim this transaction (please switch to the recipient\'s MetaMask account)');
         } else if (error.message.toLowerCase().includes('invalid number value')) {
           throw new Error('Transaction ID must be a number');
         } else if (error.message.toLowerCase().includes('not the intended recipient')) {
@@ -632,11 +632,11 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
       const count = Number(txCount);
       const transactions = [];
 
-      for (let i = 1; i <= count; i++) {
+      for (let i = 0; i < count; i++) {
         try {
-          const tx = await contract.getTransaction(i);
+          const tx = await contract.getTransaction(i + 1);
           transactions.push({
-            id: i,
+            id: i + 1,
             sender: getAddress(tx.sender),
             recipient: getAddress(tx.recipient),
             amount: formatEther(tx.amount),
@@ -644,11 +644,11 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
             cancelled: tx.cancelled,
           });
         } catch (innerError) {
-          console.warn(`Could not fetch transaction ID ${i}:`, innerError);
+          console.warn(`Could not fetch transaction ID ${i + 1}:`, innerError);
           // Optionally, add a placeholder for failed transactions
           transactions.push({
-            id: i,
-            error: `Failed to load transaction ${i}`,
+            id: i + 1,
+            error: `Failed to load transaction ${i + 1}`,
           });
         }
       }
