@@ -8,7 +8,7 @@ CryptoSafeSend is a decentralized Web3-based transaction mediator designed to sa
 
 ## 🧩 Features
 
-- ✅ Smart Contract Escrow: Securely holds MATIC until verification.
+- ✅ Smart Contract Escrow: Securely holds ETH until verification.
 - ✅ Secret Code Validation: Receiver must provide a unique code to unlock funds.
 - ✅ In-App Secure Messaging: Firebase-based chat for sending the secret code safely.
 - ✅ Dual Login: Sender and Receiver can log in with separate wallet addresses.
