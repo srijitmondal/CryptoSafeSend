@@ -65,7 +65,7 @@ export const TransactionSummary: React.FC<TransactionSummaryProps> = ({
 
   return (
     <div className="p-4 bg-blue-900/40 border border-blue-400/30 rounded-xl mb-4 animate-fade-in">
-      <h3 className="text-lg font-semibold text-white mb-2">Transaction Summary</h3>
+      <h3 className="text-lg font-semibold text-white mb-2">⚠️ Warning : Transaction Summary</h3>
       {loading ? (
         <div className="text-blue-200">Loading...</div>
       ) : error ? (
@@ -73,8 +73,33 @@ export const TransactionSummary: React.FC<TransactionSummaryProps> = ({
       ) : (
         <div className="text-blue-100 mb-4">{summary}</div>
       )}
+      
+      {/* Highlighted Transaction Details */}
+      <div className="bg-blue-800/30 border border-blue-500/50 rounded-lg p-3 mb-4">
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-blue-200 font-medium">Amount:</span>
+            <span className="text-yellow-300 font-bold text-lg bg-yellow-900/30 px-2 py-1 rounded">
+              {amount} ETH
+            </span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-blue-200 font-medium">Recipient:</span>
+            <span className="text-green-300 font-mono text-sm bg-green-900/30 px-2 py-1 rounded break-all">
+              {recipientAddress}
+            </span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-blue-200 font-medium">Secret Code:</span>
+            <span className="text-purple-300 font-bold text-lg bg-purple-900/30 px-2 py-1 rounded">
+              {secretCode}
+            </span>
+          </div>
+        </div>
+      </div>
+      
       <button
-        className="w-full mt-2 bg-gradient-to-r from-green-500 to-blue-600 hover:from-green-600 hover:to-blue-700 text-white border-0 h-12 text-lg font-semibold rounded-xl transition-all duration-300 hover:scale-105"
+        className="w-full mt-2 bg-gradient-to-r from-red-500 to-red-700 hover:from-red-600 hover:to-red-800 text-white border-0 h-12 text-lg font-semibold rounded-xl transition-all duration-300 hover:scale-105"
         onClick={onProceed}
         disabled={loading}
       >
