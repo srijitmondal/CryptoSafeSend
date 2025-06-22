@@ -1,0 +1,10 @@
+[package]
+name = "SafeSend"
+version = "0.0.1"
+authors = ["Your Name rohitpaulin64@gmail.com"]
+
+[addresses]
+safe_send = "0x2360bfab1a185a47d66ca995b73799be630572d8004a63dac9904f82cd158bb8"
+
+[dependencies]
+AptosFramework = { git = "https://github.com/aptos-labs/aptos-core.git", subdir = "aptos-move/framework/aptos-framework", rev = "main" }
