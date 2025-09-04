@@ -254,7 +254,7 @@ const CONTRACT_ABI = [
 ];
 
 // Updated with your actual deployed contract address from Ganache
-const CONTRACT_ADDRESS = "0x7dd1cb4c97A9Bf8A24d040c6F44b316E093B12e3"; // Your SafeSend contract address
+const CONTRACT_ADDRESS = "0xeFbc534AeaC9B2546e96E2fA51C5eDEC90CaAcF9"; // Your SafeSend contract address
 
 interface WalletProviderProps {
 	children: ReactNode;

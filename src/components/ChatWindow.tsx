@@ -14,12 +14,13 @@ import {
   serverTimestamp,
   updateDoc,
   doc,
-  DocumentData,
   or,
   and
 } from 'firebase/firestore';
 import { db } from '@/config/firebase';
 import { useAuth } from '@/contexts/AuthContext';
+import { encryptMessage, decryptMessage } from '@/lib/encryption';
+import { useToast } from '@/hooks/use-toast';
 
 interface Message {
   id: string;
@@ -28,6 +29,7 @@ interface Message {
   messageContent: string;
   timestamp: Date;
   isRead: boolean;
+  iv?: string; // For encrypted messages
 }
 
 interface ChatWindowProps {
@@ -46,7 +48,9 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [sending, setSending] = useState(false);
+  const [decryptedMessages, setDecryptedMessages] = useState<Map<string, string>>(new Map());
   const { currentUser, userWallet } = useAuth();
+  const { toast } = useToast();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to bottom when new messages arrive
@@ -54,12 +58,73 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
+  // Decrypt a single message
+  const decryptSingleMessage = async (message: Message): Promise<void> => {
+    if (!currentUser || !message.iv) return;
+    
+    try {
+      // Skip if we've already decrypted this message or if it's a pending message
+      if (decryptedMessages.has(message.id) || message.id.startsWith('pending-')) {
+        return;
+      }
+
+      // For messages we sent: use recipient's UID as key (we encrypted with their UID)
+      // For messages we received: use our UID as key (sender encrypted with our UID)
+      const decryptionKey = message.senderUid === currentUser.uid ? recipientUid : currentUser.uid;
+
+      const decrypted = await decryptMessage(
+        { 
+          iv: message.iv, 
+          data: message.messageContent 
+        }, 
+        decryptionKey
+      );
+
+      // Update state immediately when decryption succeeds
+      setDecryptedMessages(prev => {
+        const updated = new Map(prev);
+        updated.set(message.id, decrypted);
+        return updated;
+      });
+    } catch (error) {
+      console.error('Failed to decrypt message:', {
+        error,
+        messageId: message.id,
+        sender: message.senderUid,
+      });
+      
+      // Show error state in UI
+      setDecryptedMessages(prev => {
+        const updated = new Map(prev);
+        updated.set(message.id, '[Failed to decrypt message]');
+        return updated;
+      });
+    }
+  };
+
+  // Effect to handle message decryption
+  useEffect(() => {
+    const decryptMessages = async () => {
+      const promises = messages
+        .filter(message => !decryptedMessages.has(message.id) && message.messageContent && message.iv)
+        .map(message => decryptSingleMessage(message));
+      
+      // Decrypt all messages in parallel for better performance
+      await Promise.all(promises);
+    };
+    
+    decryptMessages();
+  }, [messages]); // Re-run when messages change
+
   useEffect(() => {
     if (!currentUser) return;
 
-    console.log('Setting up messages listener for chat between:', currentUser.uid, 'and', recipientUid);
+    console.log('Setting up messages listener:', {
+      currentUserUid: currentUser.uid,
+      recipientUid: recipientUid
+    });
 
-    // Create a better query that specifically targets messages between these two users
+    // Create a query for messages in both directions
     const messagesQuery = query(
       collection(db, 'messages'),
       or(
@@ -76,33 +141,80 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     );
 
     const unsubscribe = onSnapshot(messagesQuery, (snapshot) => {
-      console.log('Messages snapshot received, size:', snapshot.size);
-      console.log('Snapshot changes:', snapshot.docChanges());
-      
-      const messagesList: Message[] = [];
-      
-      snapshot.forEach((doc) => {
-        const data = doc.data();
-        console.log('Processing message:', doc.id, data);
+      // Process all changes at once for better performance
+      const changes = snapshot.docChanges();
+      const pendingDecryption: Message[] = [];
+      const readUpdates: string[] = [];
+
+      // Batch update messages
+      setMessages(prev => {
+        let updated = [...prev];
         
-        messagesList.push({
-          id: doc.id,
-          senderUid: data.senderUid,
-          senderWallet: data.senderWallet || 'No wallet',
-          messageContent: data.messageContent,
-          timestamp: data.timestamp?.toDate() || new Date(),
-          isRead: data.isRead
+        changes.forEach(change => {
+          const data = change.doc.data();
+          const messageId = change.doc.id;
+
+          // Queue read status update if needed
+          if (change.type === 'added' && 
+              data.senderUid === recipientUid && 
+              !data.isRead) {
+            readUpdates.push(messageId);
+          }
+
+          const message: Message = {
+            id: messageId,
+            senderUid: data.senderUid,
+            senderWallet: data.senderWallet || 'No wallet',
+            messageContent: data.messageContent,
+            timestamp: data.timestamp?.toDate() || new Date(),
+            isRead: data.isRead,
+            iv: data.iv
+          };
+
+          if (change.type === 'added') {
+            // Skip if it's our own pending message
+            if (!message.id.startsWith('pending-') && 
+                !updated.some(m => m.id === messageId)) {
+              // Find correct position by timestamp
+              const index = updated.findIndex(m => m.timestamp > message.timestamp);
+              if (index === -1) {
+                updated.push(message);
+              } else {
+                updated.splice(index, 0, message);
+              }
+              
+              // Queue for decryption if needed
+              if (message.messageContent && message.iv) {
+                pendingDecryption.push(message);
+              }
+            }
+          } else if (change.type === 'modified') {
+            // Update existing message
+            updated = updated.map(m => m.id === messageId ? { ...m, ...message } : m);
+          } else if (change.type === 'removed') {
+            // Remove message
+            updated = updated.filter(m => m.id !== messageId);
+            setDecryptedMessages(prev => {
+              const newMap = new Map(prev);
+              newMap.delete(messageId);
+              return newMap;
+            });
+          }
         });
+
+        return updated;
       });
-      
-      console.log('Final messages list:', messagesList);
-      setMessages(messagesList);
-      
-      // Mark messages as read
-      messagesList.forEach(async (message) => {
-        if (message.senderUid === recipientUid && !message.isRead) {
-          await updateDoc(doc(db, 'messages', message.id), { isRead: true });
-        }
+
+      // Start decryption in parallel for all new messages
+      if (pendingDecryption.length > 0) {
+        Promise.all(pendingDecryption.map(decryptSingleMessage))
+          .catch(error => console.error('Failed to decrypt messages:', error));
+      }
+
+      // Update read status in batch
+      readUpdates.forEach(messageId => {
+        updateDoc(doc(db, 'messages', messageId), { isRead: true })
+          .catch(error => console.error('Failed to mark message as read:', messageId, error));
       });
     }, (error) => {
       console.error('Error in messages listener:', error);
@@ -118,45 +230,91 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
 
   const sendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newMessage.trim() || !currentUser) {
-      return;
-    }
+    if (!newMessage.trim() || !currentUser) return;
 
-    setSending(true);
-    const sentMessageContent = newMessage.trim();
-    setNewMessage('');
+    const messageToSend = newMessage.trim();
+    setNewMessage(''); // Clear input immediately
 
+    // Create optimistic message with local timestamp
+    const now = new Date();
+    const optimisticId = `pending-${now.getTime()}`;
     const optimisticMessage: Message = {
-      id: `optimistic-${Date.now()}`,
+      id: optimisticId,
       senderUid: currentUser.uid,
       senderWallet: userWallet || 'No wallet',
-      messageContent: sentMessageContent,
-      timestamp: new Date(),
-      isRead: false,
+      messageContent: messageToSend,
+      timestamp: now,
+      isRead: false
     };
 
-    setMessages(prevMessages => [...prevMessages, optimisticMessage]);
+    // Show message instantly
+    setMessages(prev => [...prev, optimisticMessage]);
+    setDecryptedMessages(prev => new Map(prev).set(optimisticId, messageToSend));
 
+    // Start encryption and sending process
+    let encryptedData: { data: string; iv: string };
     try {
+      // Start encryption immediately
+      const encryptPromise = encryptMessage(messageToSend, recipientUid);
+      setSending(true);
+
+      // While encrypting, scroll to bottom and give instant feedback
+      scrollToBottom();
+      encryptedData = await encryptPromise;
+
       const messageData = {
         senderUid: currentUser.uid,
         senderWallet: userWallet || 'No wallet',
         recipientUid,
         recipientWallet: recipientWallet || 'No wallet',
-        messageContent: sentMessageContent,
+        messageContent: encryptedData.data,
+        iv: encryptedData.iv,
         timestamp: serverTimestamp(),
         isRead: false,
+        localTimestamp: now.getTime(), // Store local timestamp for ordering
       };
       
-      await addDoc(collection(db, 'messages'), messageData);
+      // Send to Firebase
+      const docRef = await addDoc(collection(db, 'messages'), messageData);
+
+      // Transfer the decrypted content to the real message ID
+      setDecryptedMessages(prev => {
+        const updated = new Map(prev);
+        if (prev.has(optimisticId)) { // Only if the optimistic message still exists
+          updated.set(docRef.id, messageToSend);
+          updated.delete(optimisticId);
+        }
+        return updated;
+      });
+
+      // Remove the optimistic message (will be replaced by real one from Firebase)
+      setMessages(prev => prev.filter(m => m.id !== optimisticId));
+
     } catch (error) {
       console.error('Error sending message:', error);
-      // Revert the optimistic update on error
-      setMessages(prevMessages => prevMessages.filter(msg => msg.id !== optimisticMessage.id));
-      setNewMessage(sentMessageContent);
+      toast({
+        title: "Error",
+        description: "Failed to send message. Please try again.",
+        variant: "destructive"
+      });
+      
+      // Keep the message in the input for retry
+      setNewMessage(messageToSend);
+      
+      // Remove failed optimistic message
+      setMessages(prev => prev.filter(m => m.id !== optimisticId));
+      setDecryptedMessages(prev => {
+        const updated = new Map(prev);
+        updated.delete(optimisticId);
+        return updated;
+      });
     } finally {
       setSending(false);
     }
+  };
+
+  const getMessageContent = (message: Message) => {
+    return decryptedMessages.get(message.id) || 'Decrypting...';
   };
 
   const formatTime = (date: Date) => {
@@ -249,7 +407,9 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                               : 'bg-black/40 text-gray-100 border border-gray-700/50'
                           }`}
                         >
-                          <p className="text-sm leading-relaxed break-words">{message.messageContent}</p>
+                          <p className="text-sm leading-relaxed break-words">
+                            {getMessageContent(message)}
+                          </p>
                           <div className={`flex items-center justify-end mt-2 space-x-1 ${
                             isOwnMessage ? 'text-blue-100' : 'text-gray-400'
                           }`}>
